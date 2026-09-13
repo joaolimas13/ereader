@@ -91,6 +91,22 @@ scripts/gen-icons.js   gera os ícones placeholder (rodar com `node scripts/gen-
   só no IndexedDB do navegador do próprio tablet; nada é enviado a lugar
   nenhum.
 
+## Fase 2 implementada
+
+- **Modo foco** (botão ◎ na barra do leitor): tenta tela cheia + trava de
+  orientação em retrato (`Fullscreen API` + `Screen Orientation API` — só
+  funcionam de verdade num navegador que suporte, tipicamente o app já
+  instalado como PWA; se a API não existir, o app degrada de forma
+  silenciosa e só esconde a barra de navegação do app), esconde a barra do
+  app, e roda um timer Pomodoro (duração configurável em Configurações). Ao
+  fim de cada bloco de foco, a pausa começa sozinha (auto-pause) com
+  contagem regressiva; dá pra pular a pausa e voltar a ler.
+- **Ajuste de cor por horário**: liga/desliga em Configurações. Quando
+  ativado, aplica um filtro CSS (`sepia`/`saturate`/`brightness`) sobre a
+  área de leitura que esquenta a cor gradualmente entre 17h e 20h e mantém
+  o tom quente até as 6h — recalculado a cada minuto enquanto o leitor está
+  aberto. Funciona em cima de qualquer tema (claro/escuro/sépia).
+
 ## Limitação conhecida: "reflow" de PDF
 
 PDF é um formato de posicionamento fixo — texto reflow real (recompor o

@@ -19,20 +19,44 @@
   const locLabel = document.getElementById('loc-label');
   const toolbar = document.querySelector('.reader-toolbar');
   const footer = document.querySelector('.reader-footer');
+  const readerViewport = document.querySelector('.reader-viewport');
 
   const epubSettingsBlock = document.getElementById('epub-settings');
   const pdfSettingsBlock = document.getElementById('pdf-settings');
   const fontSizeLabel = document.getElementById('font-size-label');
   const spacingLabel = document.getElementById('spacing-label');
   const zoomLabel = document.getElementById('zoom-label');
+  const timeColorToggle = document.getElementById('time-color-toggle');
+  const focusWorkLabel = document.getElementById('focus-work-label');
+  const focusBreakLabel = document.getElementById('focus-break-label');
 
-  const DEFAULT_SETTINGS = { theme: 'light', fontSize: 100, spacing: 1.4, fontFamily: 'serif', zoom: 1 };
+  const focusBtn = document.getElementById('focus-btn');
+  const focusWidget = document.getElementById('focus-widget');
+  const focusTimeLabel = document.getElementById('focus-time-label');
+  const focusPhaseLabel = document.getElementById('focus-phase-label');
+  const focusToggleRun = document.getElementById('focus-toggle-run');
+  const focusExitBtn = document.getElementById('focus-exit');
+  const breakOverlay = document.getElementById('break-overlay');
+  const breakTimeLabel = document.getElementById('break-time-label');
+  const breakSkipBtn = document.getElementById('break-skip');
+
+  const DEFAULT_SETTINGS = {
+    theme: 'light', fontSize: 100, spacing: 1.4, fontFamily: 'serif', zoom: 1,
+    autoColorByTime: false, focusWorkMin: 25, focusBreakMin: 5,
+  };
 
   let book = null;
   let settings = { ...DEFAULT_SETTINGS };
   let reader = null;
   let saveTimer = null;
   let sliderIsDragging = false;
+  let timeColorInterval = null;
+
+  let focusActive = false;
+  let focusTimerId = null;
+  let focusPhase = 'work';
+  let focusRemaining = 0;
+  let focusRunning = false;
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -61,10 +85,100 @@
     fontSizeLabel.textContent = settings.fontSize + '%';
     spacingLabel.textContent = settings.spacing.toFixed(1);
     zoomLabel.textContent = Math.round(settings.zoom * 100) + '%';
+    timeColorToggle.textContent = settings.autoColorByTime ? 'Ativado' : 'Desativado';
+    timeColorToggle.classList.toggle('active', settings.autoColorByTime);
+    focusWorkLabel.textContent = settings.focusWorkMin;
+    focusBreakLabel.textContent = settings.focusBreakMin;
   }
 
   async function persistSettings() {
     await DB.setSetting('readerSettings', settings);
+  }
+
+  // ---------- Ajuste de cor por horário ----------
+  // "Night light" simples: quanto mais perto da noite, mais quente/dessaturada
+  // fica a tela. Aplicado como filter CSS no viewport (afeta iframe do EPUB e
+  // canvas do PDF igual, sem precisar mexer em cada renderer).
+  function timeWarmthFactor() {
+    const now = new Date();
+    const h = now.getHours() + now.getMinutes() / 60;
+    if (h >= 6 && h < 17) return 0;
+    if (h >= 17 && h < 20) return (h - 17) / 3;
+    return 1;
+  }
+
+  function applyTimeColor() {
+    if (!settings.autoColorByTime) {
+      readerViewport.style.filter = '';
+      return;
+    }
+    const factor = timeWarmthFactor();
+    readerViewport.style.filter = factor <= 0
+      ? ''
+      : `sepia(${(0.35 * factor).toFixed(2)}) saturate(${(1 - 0.15 * factor).toFixed(2)}) brightness(${(1 - 0.06 * factor).toFixed(2)})`;
+  }
+
+  // ---------- Modo foco (Pomodoro) ----------
+  function formatMMSS(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function updateFocusUI() {
+    focusTimeLabel.textContent = formatMMSS(focusRemaining);
+    focusPhaseLabel.textContent = focusPhase === 'work' ? 'foco' : 'pausa';
+    focusToggleRun.textContent = focusRunning ? '⏸' : '▶';
+    if (focusPhase === 'break') breakTimeLabel.textContent = formatMMSS(focusRemaining);
+  }
+
+  function focusTick() {
+    focusRemaining -= 1;
+    if (focusRemaining <= 0) {
+      if (focusPhase === 'work') {
+        focusPhase = 'break';
+        focusRemaining = settings.focusBreakMin * 60;
+        breakOverlay.classList.remove('hidden');
+      } else {
+        focusPhase = 'work';
+        focusRemaining = settings.focusWorkMin * 60;
+        breakOverlay.classList.add('hidden');
+      }
+    }
+    updateFocusUI();
+  }
+
+  function startFocusTimer() {
+    focusPhase = 'work';
+    focusRemaining = settings.focusWorkMin * 60;
+    focusRunning = true;
+    updateFocusUI();
+    clearInterval(focusTimerId);
+    focusTimerId = setInterval(focusTick, 1000);
+  }
+
+  async function enterFocusMode() {
+    focusActive = true;
+    focusWidget.classList.remove('hidden');
+    toolbar.classList.add('hidden');
+    footer.classList.add('hidden');
+    try { await document.documentElement.requestFullscreen(); } catch (e) { /* sem suporte, segue sem fullscreen */ }
+    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('portrait'); } catch (e) { /* trava indisponível fora de PWA instalado */ }
+    startFocusTimer();
+  }
+
+  function exitFocusMode() {
+    if (!focusActive) return;
+    focusActive = false;
+    clearInterval(focusTimerId);
+    focusTimerId = null;
+    focusRunning = false;
+    focusWidget.classList.add('hidden');
+    breakOverlay.classList.add('hidden');
+    toolbar.classList.remove('hidden');
+    footer.classList.remove('hidden');
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { /* nada a fazer */ }
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
 
   function onRelocated({ location, percentage }) {
@@ -99,6 +213,9 @@
     epubSettingsBlock.classList.toggle('hidden', book.format !== 'epub');
     pdfSettingsBlock.classList.toggle('hidden', book.format !== 'pdf');
     updateSettingsUI();
+    applyTimeColor();
+    clearInterval(timeColorInterval);
+    timeColorInterval = setInterval(applyTimeColor, 60000);
 
     if (book.format === 'epub') {
       epubViewer.classList.remove('hidden');
@@ -197,6 +314,64 @@
     if (reader) reader.applySettings(settings);
     await persistSettings();
   });
+
+  timeColorToggle.addEventListener('click', async () => {
+    settings.autoColorByTime = !settings.autoColorByTime;
+    updateSettingsUI();
+    applyTimeColor();
+    await persistSettings();
+  });
+
+  document.getElementById('focus-work-inc').addEventListener('click', async () => {
+    settings.focusWorkMin = Math.min(90, settings.focusWorkMin + 5);
+    updateSettingsUI();
+    await persistSettings();
+  });
+  document.getElementById('focus-work-dec').addEventListener('click', async () => {
+    settings.focusWorkMin = Math.max(5, settings.focusWorkMin - 5);
+    updateSettingsUI();
+    await persistSettings();
+  });
+  document.getElementById('focus-break-inc').addEventListener('click', async () => {
+    settings.focusBreakMin = Math.min(30, settings.focusBreakMin + 1);
+    updateSettingsUI();
+    await persistSettings();
+  });
+  document.getElementById('focus-break-dec').addEventListener('click', async () => {
+    settings.focusBreakMin = Math.max(1, settings.focusBreakMin - 1);
+    updateSettingsUI();
+    await persistSettings();
+  });
+
+  focusBtn.addEventListener('click', () => enterFocusMode());
+  focusExitBtn.addEventListener('click', () => exitFocusMode());
+  focusToggleRun.addEventListener('click', () => {
+    if (focusRunning) {
+      clearInterval(focusTimerId);
+      focusRunning = false;
+    } else {
+      focusTimerId = setInterval(focusTick, 1000);
+      focusRunning = true;
+    }
+    updateFocusUI();
+  });
+  breakSkipBtn.addEventListener('click', () => {
+    focusPhase = 'work';
+    focusRemaining = settings.focusWorkMin * 60;
+    breakOverlay.classList.add('hidden');
+    updateFocusUI();
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (focusActive && !document.fullscreenElement) exitFocusMode();
+  });
+
+  let resizeTimer = null;
+  function onViewportResize() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (reader) reader.resize(); }, 200);
+  }
+  window.addEventListener('resize', onViewportResize);
+  window.addEventListener('orientationchange', onViewportResize);
 
   window.addEventListener('beforeunload', () => {
     if (reader) reader.destroy();

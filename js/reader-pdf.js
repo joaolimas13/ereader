@@ -17,7 +17,11 @@ window.PdfReader = (() => {
 
     const page = await pdf.getPage(pageNum);
     const baseViewport = page.getViewport({ scale: 1 });
-    const fitScale = viewerEl.clientWidth / baseViewport.width;
+    // clientWidth pode vir 0 se o container ainda não tiver layout (ex.: aba em
+    // segundo plano, ou logo após entrar/sair do modo tela cheia) — nesse caso
+    // cai para escala 1 em vez de gerar um canvas de tamanho zero.
+    const containerWidth = viewerEl.clientWidth || baseViewport.width;
+    const fitScale = containerWidth / baseViewport.width;
     const viewport = page.getViewport({ scale: fitScale * zoom * (window.devicePixelRatio || 1) });
 
     canvas.width = viewport.width;
@@ -66,6 +70,10 @@ window.PdfReader = (() => {
     renderPage(currentPage);
   }
 
+  function resize() {
+    if (pdf) renderPage(currentPage);
+  }
+
   function destroy() {
     if (renderTask) { try { renderTask.cancel(); } catch (e) {} }
     if (pdf) pdf.destroy();
@@ -74,5 +82,5 @@ window.PdfReader = (() => {
     viewerEl = null;
   }
 
-  return { open, next, prev, goToFraction, applySettings, destroy, get numPages() { return numPages; } };
+  return { open, next, prev, goToFraction, applySettings, resize, destroy, get numPages() { return numPages; } };
 })();

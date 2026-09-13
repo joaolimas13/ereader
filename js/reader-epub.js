@@ -66,11 +66,15 @@ window.EpubReader = (() => {
     if (settings.fontFamily) rendition.themes.font(settings.fontFamily);
   }
 
+  function resize() {
+    if (rendition) { try { rendition.resize(); } catch (e) { /* epub.js já reage a resize sozinho na maioria dos casos */ } }
+  }
+
   function destroy() {
     if (book) book.destroy();
     book = null;
     rendition = null;
   }
 
-  return { open, next, prev, goToFraction, applySettings, destroy };
+  return { open, next, prev, goToFraction, applySettings, resize, destroy };
 })();

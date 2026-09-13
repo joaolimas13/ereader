@@ -228,6 +228,7 @@ body.reader-body {
   position: relative;
   overflow: hidden;
   background: var(--bg);
+  transition: filter 1.2s ease;
 }
 
 #epub-viewer, #pdf-viewer {
@@ -380,6 +381,72 @@ body.theme-sepia {
   --text: #3a2f1e;
   --text-muted: #7a6a4a;
   --border: #d6c496;
+}
+
+/* ---------- Modo foco ---------- */
+
+.toggle-btn.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+
+.focus-widget {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  z-index: 60;
+}
+
+.focus-widget #focus-time-label {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  min-width: 44px;
+  text-align: center;
+}
+
+.focus-widget .focus-phase {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.break-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.break-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 28px 32px;
+  text-align: center;
+}
+
+.break-card p {
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+}
+
+.break-time {
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 16px;
 }
 
 @media (min-width: 900px) {

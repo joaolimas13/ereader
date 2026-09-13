@@ -14,6 +14,7 @@
   <div class="reader-toolbar">
     <button id="back-btn" class="btn-icon" aria-label="Voltar">←</button>
     <div class="title" id="reader-title">Carregando…</div>
+    <button id="focus-btn" class="btn-icon" aria-label="Modo foco">◎</button>
     <button id="settings-btn" class="btn-icon" aria-label="Configurações">⚙</button>
   </div>
 
@@ -85,7 +86,43 @@
       </div>
     </div>
 
+    <div class="settings-row">
+      <label>Ajuste de cor por horário</label>
+      <div class="stepper">
+        <button class="btn toggle-btn" id="time-color-toggle">Desativado</button>
+        <span style="font-size:0.75rem; color: var(--text-muted);">esquenta a tela à noite</span>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <label>Modo foco — duração do bloco / pausa (min)</label>
+      <div class="stepper">
+        <button class="btn" id="focus-work-dec">-</button>
+        <span id="focus-work-label">25</span>
+        <button class="btn" id="focus-work-inc">+</button>
+        <span style="width:6px;"></span>
+        <button class="btn" id="focus-break-dec">-</button>
+        <span id="focus-break-label">5</span>
+        <button class="btn" id="focus-break-inc">+</button>
+      </div>
+    </div>
+
     <button class="btn" id="settings-close" style="width:100%; margin-top: 8px;">Fechar</button>
+  </div>
+</div>
+
+<div id="focus-widget" class="focus-widget hidden">
+  <button id="focus-toggle-run" class="btn-icon" aria-label="Pausar/retomar">⏸</button>
+  <span id="focus-time-label">25:00</span>
+  <span id="focus-phase-label" class="focus-phase">foco</span>
+  <button id="focus-exit" class="btn-icon" aria-label="Sair do modo foco">✕</button>
+</div>
+
+<div id="break-overlay" class="break-overlay hidden">
+  <div class="break-card">
+    <p>Hora de uma pausa 🌿</p>
+    <div id="break-time-label" class="break-time">05:00</div>
+    <button id="break-skip" class="btn btn-primary">Continuar lendo</button>
   </div>
 </div>
 
